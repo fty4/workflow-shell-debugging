@@ -94,6 +94,17 @@ runs:
         --skip-host-key-check \
         --accept \
         --force-command 'bash -l' -- /bin/tail -f /dev/null &
+
+      # upterm creates the admin socket only after the session is established
+      for _ in $(seq 1 30); do
+        compgen -G "$HOME/.upterm/*.sock" > /dev/null && break
+        sleep 1
+      done
+      if ! compgen -G "$HOME/.upterm/*.sock" > /dev/null; then
+        echo "upterm session did not start"
+        cat nohup.out "$HOME/.upterm/upterm.log" 2>/dev/null || true
+        exit 1
+      fi
       echo "::endgroup::"
 
   - name: wait for upterm server to start
