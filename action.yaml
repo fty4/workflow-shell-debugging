@@ -79,8 +79,14 @@ runs:
       # we don't know the version.. so let's just search for it
       motd_template_path=$(find $GITHUB_ACTION_PATH -iname motd_template | head -n1)
       motd_path=$GITHUB_ACTION_PATH/motd
-      sed 's|<RUNNER_HOME>|${{ steps.check_runner_type.outputs.runner_home }}|g' $motd_template_path >> $motd_path
-      echo "cat ${motd_path}" >> ~/.bashrc
+      sed 's|<RUNNER_HOME>|${{ steps.check_runner_type.outputs.runner_home }}|g' $motd_template_path > $motd_path
+      # the session runs 'bash -l', which skips ~/.bashrc unless a login file sources it;
+      # bash reads only the first of these that exists, so append there (or create ~/.profile)
+      login_file="$HOME/.profile"
+      for f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+        if [ -e "$f" ]; then login_file="$f"; break; fi
+      done
+      echo "cat ${motd_path}" >> "$login_file"
 
       # prepare logout behavior
       if [[ ${{ inputs.continue }} == "true" ]]; then
