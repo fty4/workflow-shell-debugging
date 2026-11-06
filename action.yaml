@@ -96,10 +96,10 @@ runs:
         --force-command 'bash -l' -- /bin/tail -f /dev/null &
 
       # upterm creates the admin socket only after the session is established;
-      # its directory depends on XDG_RUNTIME_DIR, /run/user/<uid> or the ~/.upterm fallback
+      # newer versions bind <runtime dir>/sessions/<name>/admin.sock, older ones <runtime dir>/*.sock
       find_socket() {
-        find "${XDG_RUNTIME_DIR:-/nonexistent}" "/run/user/$(id -u)" "$HOME/.upterm" "$HOME/.local/state/upterm" \
-          -maxdepth 2 -name '*.sock' -path '*upterm*' 2>/dev/null | head -n1 || true
+        find "${XDG_RUNTIME_DIR:-/nonexistent}" "/run/user/$(id -u)" "$HOME/.upterm" \
+          -maxdepth 4 -name '*.sock' -not -name 'attach.sock' -path '*upterm*' 2>/dev/null | head -n1 || true
       }
       upterm_sock=""
       for _ in $(seq 1 30); do
