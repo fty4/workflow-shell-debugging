@@ -96,8 +96,13 @@ runs:
       # run upterm
       upterm version || /bin/true
       # wss: server is authenticated via TLS, no ssh host key (port 22) is exposed
+      # --skip-host-key-check only exists in some upterm versions (not v0.13.0)
+      skip_flag=""
+      if upterm host --help 2>&1 | grep -q -- '--skip-host-key-check'; then
+        skip_flag="--skip-host-key-check"
+      fi
       nohup upterm host --server ${{ inputs.server }} \
-        --skip-host-key-check \
+        $skip_flag \
         --accept \
         --force-command 'bash -l' -- /bin/tail -f /dev/null &
 
