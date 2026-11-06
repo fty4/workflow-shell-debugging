@@ -95,16 +95,25 @@ runs:
         --accept \
         --force-command 'bash -l' -- /bin/tail -f /dev/null &
 
-      # upterm creates the admin socket only after the session is established
+      # upterm creates the admin socket only after the session is established;
+      # its directory depends on XDG_RUNTIME_DIR, /run/user/<uid> or the ~/.upterm fallback
+      find_socket() {
+        find "${XDG_RUNTIME_DIR:-/nonexistent}" "/run/user/$(id -u)" "$HOME/.upterm" "$HOME/.local/state/upterm" \
+          -maxdepth 2 -name '*.sock' -path '*upterm*' 2>/dev/null | head -n1 || true
+      }
+      upterm_sock=""
       for _ in $(seq 1 30); do
-        compgen -G "$HOME/.upterm/*.sock" > /dev/null && break
+        upterm_sock="$(find_socket)"
+        [ -n "$upterm_sock" ] && break
         sleep 1
       done
-      if ! compgen -G "$HOME/.upterm/*.sock" > /dev/null; then
+      if [ -z "$upterm_sock" ]; then
         echo "upterm session did not start"
-        cat nohup.out "$HOME/.upterm/upterm.log" 2>/dev/null || true
+        cat nohup.out 2>/dev/null || true
+        find "$HOME/.upterm" "$HOME/.local/state/upterm" -name upterm.log -exec cat {} + 2>/dev/null || true
         exit 1
       fi
+      echo "UPTERM_SOCK=$upterm_sock" >> "$GITHUB_ENV"
       echo "::endgroup::"
 
   - name: wait for upterm server to start
@@ -117,13 +126,13 @@ runs:
       scheme="${scheme%%://*}://"
       split_scheme="${scheme%/}'\\'''\\''/"
       while [ ! -e $HOME/action_continue ] ; do
-        session_info="$(upterm session current --admin-socket ~/.upterm/*.sock)"
+        session_info="$(upterm session current --admin-socket "$UPTERM_SOCK")"
         echo "${session_info//"$scheme"/"$split_scheme"}"
         if [[ ${{ inputs.debug }} == "true" ]]; then
           date
         fi
         # check if we have a connection
-        if [[ $(upterm session current --admin-socket ~/.upterm/*.sock | grep "Connected Client" | wc -l) -eq 0 && $count -eq 20 ]]; then
+        if [[ $(upterm session current --admin-socket "$UPTERM_SOCK" | grep "Connected Client" | wc -l) -eq 0 && $count -eq 20 ]]; then
           echo "no connection established within 10 minutes --> forcing upterm to shutdown"
           touch $HOME/action_continue
         fi
