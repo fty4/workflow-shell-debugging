@@ -112,8 +112,13 @@ runs:
     run: |
       echo "::group::print connection string"
       count=0
+      # the scheme may be a masked secret and would print as ***; split it with shell quoting so the pasted command still resolves to the real URL
+      scheme="${{ inputs.server }}"
+      scheme="${scheme%%://*}://"
+      split_scheme="${scheme%/}'\\'''\\''/"
       while [ ! -e $HOME/action_continue ] ; do
-        upterm session current --admin-socket ~/.upterm/*.sock
+        session_info="$(upterm session current --admin-socket ~/.upterm/*.sock)"
+        echo "${session_info//"$scheme"/"$split_scheme"}"
         if [[ ${{ inputs.debug }} == "true" ]]; then
           date
         fi
