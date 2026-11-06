@@ -4,8 +4,6 @@ GitHub Action to debug workflow runs interactively in a shell via an [upterm](ht
 
 ## Usage
 
-The runner needs the `upterm` binary installed.
-
 ```yaml
 steps:
   - uses: actions/checkout@v4

@@ -53,6 +53,23 @@ runs:
       sudo date -s "$(date --date='5 seconds')"
       echo "::endgroup::"
 
+  - name: install upterm
+    shell: bash
+    run: |
+      echo "::group::install upterm"
+      if ! command -v upterm > /dev/null; then
+        case "$(uname -m)" in
+          x86_64) arch=amd64 ;;
+          aarch64|arm64) arch=arm64 ;;
+          *) echo "unsupported architecture: $(uname -m)"; exit 1 ;;
+        esac
+        mkdir -p "$HOME/.local/bin"
+        curl -sSfL "https://github.com/owenthereal/upterm/releases/latest/download/upterm_linux_${arch}.tar.gz" \
+          | tar -xz -C "$HOME/.local/bin" upterm
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+      fi
+      echo "::endgroup::"
+
   - name: setup ssh
     shell: bash
     run: |
