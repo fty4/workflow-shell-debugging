@@ -57,7 +57,8 @@ runs:
     shell: bash
     run: |
       echo "::group::install upterm"
-      if ! command -v upterm > /dev/null; then
+      # runner images may ship an outdated upterm (e.g. v0.13.0), so always use our own copy
+      if [ ! -x "$HOME/.local/bin/upterm" ]; then
         case "$(uname -m)" in
           x86_64) arch=amd64 ;;
           aarch64|arm64) arch=arm64 ;;
@@ -66,8 +67,8 @@ runs:
         mkdir -p "$HOME/.local/bin"
         curl -sSfL "https://github.com/owenthereal/upterm/releases/latest/download/upterm_linux_${arch}.tar.gz" \
           | tar -xz -C "$HOME/.local/bin" upterm
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
       fi
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
       echo "::endgroup::"
 
   - name: run upterm
