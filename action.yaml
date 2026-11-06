@@ -1,0 +1,114 @@
+name: "Debug with shell"
+description: |
+  Debug GitHub Actions runs interactively using a shell.
+branding:
+  icon: "terminal"
+inputs:
+  server:
+    description: "Upterm server URL incl. scheme - e.g. wss://your.server"
+    required: true
+  continue:
+    description: "Should remaining steps be executed when ssh session got closed?"
+    default: "true"
+  debug:
+    description: "Do you need more debug output information?"
+    default: "false"
+runs:
+  using: composite
+
+  steps:
+  - name: check prerequisites
+    shell: bash
+    run: |
+      echo "::group::check prerequisites"
+      if [[ "${{ inputs.server }}" != ws://* && "${{ inputs.server }}" != wss://* ]]; then
+        echo "server must be a ws:// or wss:// URL"
+        exit 1
+      fi
+      echo "::endgroup::"
+
+  - name: check runner type
+    shell: bash
+    id: check_runner_type
+    run: |
+      echo "::group::check runner type"
+      if [[ $(printenv | grep KUBERNETES_) ]]; then
+        runner_home="/runner"
+      else
+        runner_home='$HOME/actions-runner'
+      fi
+      echo "runner_home=$runner_home" >> $GITHUB_OUTPUT
+      echo "::endgroup::"
+
+  - name: prepare time
+    if: steps.check_runner_type.outputs.runner_home != '/runner'
+    shell: bash
+    run: |
+      # make sure this doesn't fail
+      set +e
+      echo "::group::prepare time"
+      # set the real time
+      sudo date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z"
+      # and add some seconds to be one the safe side
+      sudo date -s "$(date --date='5 seconds')"
+      echo "::endgroup::"
+
+  - name: setup ssh
+    shell: bash
+    run: |
+      echo "::group::setup ssh"
+      ssh-keygen -q -t ed25519 -N "" -f ~/.ssh/id_reverse_shell
+      echo "::endgroup::"
+
+  - name: run upterm
+    shell: bash
+    run: |
+      echo "::group::run upterm"
+
+      # prepare motd
+      # we don't know the version.. so let's just search for it
+      motd_template_path=$(find $GITHUB_ACTION_PATH -iname motd_template | head -n1)
+      motd_path=$GITHUB_ACTION_PATH/motd
+      sed 's|<RUNNER_HOME>|${{ steps.check_runner_type.outputs.runner_home }}|g' $motd_template_path >> $motd_path
+      echo "cat ${motd_path}" >> ~/.bashrc
+
+      # prepare logout behavior
+      if [[ ${{ inputs.continue }} == "true" ]]; then
+        echo "touch ${HOME}/action_continue" >> ~/.bash_logout
+      fi
+
+      # run upterm
+      upterm version || /bin/true
+      # wss: server is authenticated via TLS, no ssh host key (port 22) is exposed
+      nohup upterm host --server ${{ inputs.server }} \
+        -i ~/.ssh/id_reverse_shell \
+        --skip-host-key-check \
+        --accept \
+        --force-command 'bash -l' -- /bin/tail -f /dev/null &
+      echo "::endgroup::"
+
+  - name: wait for upterm server to start
+    shell: bash
+    run: |
+      echo "::group::print connection string"
+      count=0
+      while [ ! -e $HOME/action_continue ] ; do
+        upterm session current --admin-socket ~/.upterm/*.sock
+        if [[ ${{ inputs.debug }} == "true" ]]; then
+          date
+        fi
+        # check if we have a connection
+        if [[ $(upterm session current --admin-socket ~/.upterm/*.sock | grep "Connected Client" | wc -l) -eq 0 && $count -eq 20 ]]; then
+          echo "no connection established within 10 minutes --> forcing upterm to shutdown"
+          touch $HOME/action_continue
+        fi
+        ((count=count+1))
+        sleep 30
+      done
+      echo "::endgroup::"
+
+  - name: get upterm log
+    if: always() && github.event.inputs.debug == 'true'
+    shell: bash
+    run: |
+      cat $HOME/.upterm/upterm.log

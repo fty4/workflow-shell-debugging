@@ -1,0 +1,35 @@
+welcome to the workflow debugging shell
+
+1. you're currently in your workflow's working directory. if you used 'actions/checkout'
+   you will find your repo content here.
+
+2. everything related to your workflow can be found in:
+
+   ls <RUNNER_HOME>/_work
+
+3. all your workflow steps (and all bash steps from the actions you 'use')
+   can be found in:
+
+   ls <RUNNER_HOME>/_work/_temp
+
+4. every bash step is located in a separate, uuid-named file.
+   to find the step you want to debug, list all step files with:
+
+   tail -n +1 <RUNNER_HOME>/_work/_temp/*sh
+
+5. you can also change a step file and run it again.
+
+6. logs of your workflow can be found in:
+
+   ls <RUNNER_HOME>/_diag
+
+7. to print the log of the steps that ran so far use:
+
+   cat -n <RUNNER_HOME>/_diag/blocks/$(ls -S <RUNNER_HOME>/_diag/blocks/ | head -n 1)
+
+8. when you are done, log out to end the shell session and the workflow continues.
+   if you set `continue=false`, run this instead:
+
+   touch $HOME/action_continue && exit
+
+have fun!
