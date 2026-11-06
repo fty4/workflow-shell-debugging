@@ -70,13 +70,6 @@ runs:
       fi
       echo "::endgroup::"
 
-  - name: setup ssh
-    shell: bash
-    run: |
-      echo "::group::setup ssh"
-      ssh-keygen -q -t ed25519 -N "" -f ~/.ssh/id_reverse_shell
-      echo "::endgroup::"
-
   - name: run upterm
     shell: bash
     run: |
@@ -98,7 +91,6 @@ runs:
       upterm version || /bin/true
       # wss: server is authenticated via TLS, no ssh host key (port 22) is exposed
       nohup upterm host --server ${{ inputs.server }} \
-        -i ~/.ssh/id_reverse_shell \
         --skip-host-key-check \
         --accept \
         --force-command 'bash -l' -- /bin/tail -f /dev/null &
